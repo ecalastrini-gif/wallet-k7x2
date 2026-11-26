@@ -1,13 +1,24 @@
-// Service worker: apre il wallet anche senza rete (cache dei soli file dell'app, mai dati personali).
-const C = 'wallet-shell-v1';
-self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(['./', './index.html'])).then(() => self.skipWaiting())); });
-self.addEventListener('activate', e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== C).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
+// Service worker v2: cerca sempre prima la versione nuova online; la copia salvata serve solo senza rete.
+// Non salva mai dati personali: solo i file dell'app.
+const C = 'wallet-shell-v2';
+self.addEventListener('install', e => {
+  e.waitUntil(
+    caches.open(C)
+      .then(c => c.addAll([new Request('./', { cache: 'reload' }), new Request('./index.html', { cache: 'reload' })]))
+      .catch(() => { })
+      .then(() => self.skipWaiting())
+  );
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== C).map(x => caches.delete(x)))).then(() => self.clients.claim()));
+});
 self.addEventListener('fetch', e => {
   const r = e.request;
   if (r.method !== 'GET' || new URL(r.url).origin !== location.origin) return;
-  e.respondWith(caches.open(C).then(async c => {
-    const hit = await c.match(r, { ignoreSearch: true });
-    const net = fetch(r).then(res => { if (res.ok) c.put(r, res.clone()); return res; }).catch(() => hit);
-    return hit || net;
-  }));
+  e.respondWith(
+    fetch(r, { cache: 'no-cache' })
+      .then(res => { if (res.ok) { const cp = res.clone(); caches.open(C).then(c => c.put(r, cp)); } return res; })
+      .catch(() => caches.open(C).then(c => c.match(r, { ignoreSearch: true })))
+      .then(x => x || Response.error())
+  );
 });
