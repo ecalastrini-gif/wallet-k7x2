@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-y/NbH+IC7/lE8FOs8JZxPJjwr1nQouyTK5wHiwadqxE='; style-src 'unsafe-inline'; img-src data: blob:; media-src blob: mediastream:; worker-src 'self'; base-uri 'none'; form-action 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-pvM71hcbXR8h5CG4GfLiGHvpzwFUK1zlPK/89UtHh2o='; style-src 'unsafe-inline'; img-src data: blob:; media-src blob: mediastream:; worker-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow,noarchive">
 <meta name="theme-color" content="#09090a">
@@ -200,6 +200,11 @@ h2 span{background:var(--panel2);border-radius:99px;padding:1px 8px;letter-spaci
 .dtools{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
 .dc{width:32px;height:32px;border-radius:50%;border:0;background:var(--c);box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}.dc.on{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--acc)}
 .dsz{width:40px;height:40px;border-radius:50%;border:0;background:var(--panel2);display:grid;place-items:center}.dsz i{display:block;border-radius:50%;background:var(--fg)}.dsz.on{outline:2px solid var(--acc)}
+
+/* codici multipli */
+.clab{font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:#6b6b72;font-weight:650;margin-bottom:12px;text-align:center}
+.xc{display:grid;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:12px}
+.fr2{display:flex;gap:8px;align-items:center}.fr2 input{flex:1}
 </style>
 </head>
 <body>
@@ -458,6 +463,7 @@ const IC = {
   id: ic('<rect x="3" y="5" width="18" height="14" rx="3"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.8 5.4-1.8 6 0M14 10h4M14 13h3"/>'),
   bars: ic('<path d="M5 6v12M8 6v12M12 6v12M15 6v12M19 6v12" /><path d="M10 6v12" stroke-width="3"/>'),
   shield: ic('<path d="M12 3l7 3v5c0 5-3 8-7 10-4-2-7-5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'),
+  image: ic('<rect x="4" y="5" width="16" height="14" rx="3"/><circle cx="9" cy="10" r="1.5"/><path d="M5 17l5-4 3 2 3-3 3 3"/>'),
 };
 const COLORS = [
   { id: 'graphite', a: '#3a3b40', b: '#0f0f11', fg: '#f4f4f2' },
@@ -484,6 +490,7 @@ const ICONS = {
   book: ic('<path d="M5 5a2 2 0 012-2h12v16H7a2 2 0 00-2 2z"/><path d="M5 19V5"/>'),
   sport: ic('<path d="M6 8v8M3.5 10v4M18 8v8M20.5 10v4M6 12h12"/>'),
   bike: ic('<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-8h5l3 8M10 8H8M13 8l-3.5 8"/>'),
+  bus: ic('<rect x="4" y="4" width="16" height="13" rx="3"/><path d="M4 11h16M7 17v3M17 17v3"/><circle cx="8" cy="14" r=".7"/><circle cx="16" cy="14" r=".7"/>'),
   bolt: ic('<path d="M13 3L5 13h6l-1 8 8-10h-6z"/>'),
   leaf: ic('<path d="M5 19c0-8 5-14 14-14 0 9-6 14-14 14zM5 19c3-4 6-6 9-8"/>'),
   ticket: ic('<path d="M4 8a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2a2 2 0 000-4z"/><path d="M14 7v10" stroke-dasharray="2 2"/>'),
@@ -518,8 +525,10 @@ const PRESETS = [
   { name: 'Tessera sanitaria', color: 'mint', fields: ['Numero tessera'], code: 'Codice fiscale', codeType: 'code39' },
   { name: 'Patente', color: 'graphite', fields: ['Numero patente', 'Codice fiscale'] },
   { name: 'Passaporto', color: 'red', fields: ['Numero passaporto'] },
+  { name: 'Abbonamento bus', color: 'amber', fields: ['Intestatario', 'Codice fiscale', 'Numero abbonamento', 'Tratta / zone', 'Valido dal'], codes: [{ l: 'QR code', t: 'qr', v: '' }, { l: 'Codice a barre', t: 'auto', v: '' }], emblem: { t: 'icon', v: 'bus' } },
 ];
 const TYPES = [['auto', 'Automatico'], ['ean13', 'EAN-13'], ['ean8', 'EAN-8'], ['code128', 'Code 128'], ['code39', 'Code 39'], ['qr', 'QR code']];
+const CAN_FILE = 'BarcodeDetector' in window;
 const CAN_SCAN = 'BarcodeDetector' in window && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
 
 /* ---------------- storage ---------------- */
@@ -547,6 +556,7 @@ const card = id => S.cards.find(c => c.id === id);
 let saveQ = Promise.resolve();
 function save() {
   saveQ = saveQ.then(async () => {
+    if (!S || !KEY) return;
     const { iv, ct } = await encrypt(KEY, S);
     VAULT = { ...VAULT, iv, ct };
     await DB.set('vault', VAULT);
@@ -718,11 +728,11 @@ function openDetail(id) {
 }
 function renderDetail() {
   const c = card(UI.d.id), k = colorOf(c), e = expInfo(c.expiry);
-  const r = c.code ? BC.make(c.code, c.codeType) : null;
+  const items = [c.code ? { l: '', v: c.code, t: c.codeType, i: '' } : null, ...(c.codes || []).map((x, i) => ({ ...x, i }))].filter(x => x && x.v);
   const sides = [c.front && 'front', c.back && 'back'].filter(Boolean);
   if (!sides.includes(UI.d.side)) UI.d.side = sides[0] || null;
   let first = true; const pull = () => { const p = first ? ' pull' : ''; first = false; return p; };
-  const codeB = r ? (r.err ? `<div class="blk${pull()} errbox">${esc(r.err)}</div>` : `<div class="blk${pull()} codep" data-act="bigcode"><div class="bc ${r.matrix ? 'sq' : ''}">${BC.svg(r)}</div><div class="val">${esc(r.text || c.code)}</div><div class="hint">Tocca per ingrandire</div></div>`) : '';
+  const codeB = items.map(x => { const r = BC.make(x.v, x.t); return r.err ? `<div class="blk${pull()} errbox">${esc(x.l)} ${esc(r.err)}</div>` : `<div class="blk${pull()} codep" data-act="bigcode" data-i="${x.i}">${x.l ? `<div class="clab">${esc(x.l)}</div>` : ''}<div class="bc ${r.matrix ? 'sq' : ''}">${BC.svg(r)}</div>${r.matrix && x.v.length > 40 ? '' : `<div class="val">${esc(r.text || x.v)}</div>`}<div class="hint">Tocca per ingrandire</div></div>`; }).join('');
   const photoB = sides.length ? `<div class="blk${pull()}">${sides.length > 1 ? `<div class="seg" data-seg>${sides.map(s => `<button data-act="side" data-s="${s}" class="${UI.d.side === s ? 'on' : ''}">${s === 'front' ? 'Fronte' : 'Retro'}</button>`).join('')}</div>` : ''}<div class="photo" data-act="fs"><img alt="Foto della carta" src="${UI.d.side === 'back' ? c.back : c.front}"><span class="fsb">${IC.expand}</span></div></div>` : '';
   const flds = (c.fields || []).filter(f => f.v);
   const fieldsB = flds.length ? `<div class="blk${pull()} rows">${flds.map(f => `<button class="row" data-act="copy" data-v="${esc(f.v)}"><span class="l">${esc(f.l || 'Dato')}</span><span class="v">${esc(f.v)}</span>${IC.copy}</button>`).join('')}</div>` : '';
@@ -745,18 +755,20 @@ function renderViewer() {
   $('#L-viewer').innerHTML = `<div class="vimg"><img alt="" src="${src}"></div><div class="vbar">${both ? `<div class="seg dk">${['front', 'back'].map(s => `<button data-act="side" data-s="${s}" class="${UI.d.side === s ? 'on' : ''}">${s === 'front' ? 'Fronte' : 'Retro'}</button>`).join('')}</div>` : ''}<button class="pill" data-act="close">Chiudi</button></div>`;
   const im = $('#L-viewer img'); const f = () => im.classList.toggle('tall', im.naturalHeight > im.naturalWidth); im.onload = f; if (im.complete) f();
 }
-function openBigCode() {
-  const c = card(UI.d.id), r = BC.make(c.code, c.codeType); if (r.err) return;
-  $('#L-codeview').innerHTML = `<div class="cvin" data-act="close"><div class="cvn">${esc(c.name)}</div><div class="cvb ${r.matrix ? 'sq' : ''}">${BC.svg(r)}</div><div class="cvv">${esc(r.text || c.code)}</div><div class="cvh">Tocca per chiudere</div></div>`;
+function openBigCode(i) {
+  const c = card(UI.d.id), x = i === '' || i == null ? { l: '', v: c.code, t: c.codeType } : (c.codes || [])[+i]; if (!x) return;
+  const r = BC.make(x.v, x.t); if (r.err) return;
+  $('#L-codeview').innerHTML = `<div class="cvin" data-act="close"><div class="cvn">${esc(c.name)}${x.l ? ' · ' + esc(x.l) : ''}</div><div class="cvb ${r.matrix ? 'sq' : ''}">${BC.svg(r)}</div>${r.matrix && x.v.length > 40 ? '' : `<div class="cvv">${esc(r.text || x.v)}</div>`}<div class="cvh">Tocca per chiudere</div></div>`;
   openL('codeview');
 }
 
 /* ---------------- editor ---------------- */
 let ED = null, pickSide = null;
-function newDraft() { return { id: null, kind: S.cards.some(c => c.kind === 'doc') ? 'loyalty' : 'doc', name: '', color: 'graphite', code: '', codeType: 'auto', expiry: '', fields: [], front: null, back: null, notes: '', emblem: null, c1: '#3a3b40', c2: '#0f0f11', pat: '' }; }
+function newDraft() { return { id: null, kind: S.cards.some(c => c.kind === 'doc') ? 'loyalty' : 'doc', name: '', color: 'graphite', code: '', codeType: 'auto', expiry: '', fields: [], codes: [], front: null, back: null, notes: '', emblem: null, c1: '#3a3b40', c2: '#0f0f11', pat: '' }; }
 function openEditor(id) {
   ED = id ? JSON.parse(JSON.stringify(card(id))) : newDraft();
   ED.fields = ED.fields || []; ED.codeType = ED.codeType || 'auto'; ED.expiry = ED.expiry || ''; ED.notes = ED.notes || ''; ED.code = ED.code || '';
+  ED.codes = (ED.codes || []).map(x => ({ l: x.l || '', v: x.v || '', t: x.t || 'auto' }));
   ED.emblem = ED.emblem || null; ED.pat = ED.pat || ''; if (!HEX.test(ED.c1 || '') || !HEX.test(ED.c2 || '')) { const k0 = col(ED.color); ED.c1 = k0.a; ED.c2 = k0.b; }
   ED._tab = ED.emblem ? ED.emblem.t : 'none';
   if (!id) ED.color = ED.kind === 'doc' ? 'blue' : 'graphite';
@@ -786,19 +798,26 @@ function renderEditor() {
     <div class="f"><span>Colore</span><div class="sw">${COLORS.map(c => `<button class="swb ${c.id === e.color ? 'on' : ''}" data-act="ecolor" data-c="${c.id}" style="--a:${c.a};--b:${c.b}" aria-label="${c.id}"></button>`).join('')}<button class="swb ${e.color === 'custom' ? 'on' : ''}" data-act="ecolor" data-c="custom" style="background:conic-gradient(#ff5a47,#ffc044,#d6ff3d,#5ff0c4,#4a74ff,#a074ff,#ff5a47)" aria-label="personalizzato"></button></div>${e.color === 'custom' ? cpick : ''}</div>
     ${patUI}${emblemUI}
     <div class="f"><span>${codeLabel}</span>
-      <div class="codein"><input id="e-code" value="${esc(e.code)}" placeholder="${esc(codePh)}" autocomplete="off" autocapitalize="off" spellcheck="false">${CAN_SCAN ? `<button class="ib" data-act="escan" aria-label="Scansiona">${IC.scan}</button>` : ''}</div>
+      <div class="codein"><input id="e-code" value="${esc(e.code)}" placeholder="${esc(codePh)}" autocomplete="off" autocapitalize="off" spellcheck="false">${CAN_SCAN ? `<button class="ib" data-act="escan" aria-label="Scansiona">${IC.scan}</button>` : ''}${CAN_FILE ? `<button class="ib" data-act="exfile" data-i="-1" aria-label="Da immagine">${IC.image}</button>` : ''}</div>
       <select id="e-type">${TYPES.map(([v, l]) => `<option value="${v}" ${e.codeType === v ? 'selected' : ''}>${l}</option>`).join('')}</select>
       <div id="e-prev"></div></div>
+    <div class="f"><span>Altri codici (es. QR + barre)</span>${e.codes.map((x, i) => `<div class="xc"><div class="fr2"><input data-x="l" data-i="${i}" value="${esc(x.l)}" placeholder="Nome (es. QR code)" maxlength="30" autocomplete="off"><button class="ib sm" data-act="exdel" data-i="${i}" aria-label="Rimuovi">${IC.x}</button></div><div class="codein"><input data-x="v" data-i="${i}" value="${esc(x.v)}" placeholder="Valore del codice" autocomplete="off" autocapitalize="off" spellcheck="false">${CAN_SCAN ? `<button class="ib" data-act="exscan" data-i="${i}" aria-label="Scansiona">${IC.scan}</button>` : ''}${CAN_FILE ? `<button class="ib" data-act="exfile" data-i="${i}" aria-label="Da immagine">${IC.image}</button>` : ''}</div><select data-x="t" data-i="${i}">${TYPES.map(([v, l]) => `<option value="${v}" ${x.t === v ? 'selected' : ''}>${l}</option>`).join('')}</select><div id="xp${i}"></div></div>`).join('')}${e.codes.length < 4 ? `<button class="link" data-act="exadd">+ Aggiungi codice</button>` : ''}</div>
     <label class="f"><span>Scadenza (facoltativa)</span><input id="e-exp" type="date" value="${esc(e.expiry)}"></label>
     <div class="f"><span>Dati</span><div class="frows">${e.fields.map((f, i) => `<div class="fr"><input data-f="l" data-i="${i}" value="${esc(f.l)}" placeholder="Etichetta" autocomplete="off"><input data-f="v" data-i="${i}" value="${esc(f.v)}" placeholder="Valore" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="ib sm" data-act="edelf" data-i="${i}" aria-label="Rimuovi">${IC.x}</button></div>`).join('')}</div><button class="link" data-act="eaddf">+ Aggiungi dato</button></div>
     <div class="f"><span>Foto ${doc ? '' : '(facoltative)'}</span><div class="phs">${['front', 'back'].map(s => `<div class="ph"><div class="phbox ${e[s] ? 'has' : ''}" ${e[s] ? '' : `data-act="epick" data-s="${s}"`}>${e[s] ? `<img alt="" src="${e[s]}">` : `${IC.camera}<em>${s === 'front' ? 'Fronte' : 'Retro'}</em>`}</div>${e[s] ? `<div class="phact"><button class="ib sm" data-act="erot" data-s="${s}" aria-label="Ruota">${IC.rotate}</button><button class="ib sm" data-act="eclear" data-s="${s}" aria-label="Rimuovi">${IC.x}</button></div>` : ''}</div>`).join('')}</div></div>
     <label class="f"><span>Note</span><textarea id="e-notes" rows="3" placeholder="Facoltative">${esc(e.notes)}</textarea></label>
     ${e.id ? `<button class="btn dng wide" data-act="edel">Elimina carta</button>` : ''}
-    <input type="file" id="e-file" accept="image/*" hidden><input type="file" id="e-emfile" accept="image/*" hidden>
+    <input type="file" id="e-file" accept="image/*" hidden><input type="file" id="e-emfile" accept="image/*" hidden><input type="file" id="e-codefile" accept="image/*" hidden>
   </div>`;
-  $('#L-editor').scrollTop = st; updatePrev();
+  $('#L-editor').scrollTop = st; updatePrev(); ED.codes.forEach((_, i) => updateXPrev(i));
 }
 function updateFace() { const f = $('#e-face'); if (f && ED) f.innerHTML = face(ED); }
+function updateXPrev(i) {
+  const p = $('#xp' + i), x = ED.codes[i]; if (!p || !x) return; const v = (x.v || '').trim();
+  if (!v) { p.innerHTML = ''; return; }
+  const r = BC.make(v, x.t);
+  p.innerHTML = r.err ? `<div class="perr">${esc(r.err)}</div>` : `<div class="prev ${r.matrix ? 'sq' : ''}">${BC.svg(r)}</div>${r.warn ? `<div class="pwarn">${esc(r.warn)}</div>` : ''}<div class="pinfo">${esc(TYPES.find(t => t[0] === r.type)?.[1] || '')}${x.t === 'auto' ? ' · scelto in automatico' : ''}</div>`;
+}
 function updatePrev() {
   const p = $('#e-prev'); if (!p) return; const v = ED.code.trim();
   if (!v) { p.innerHTML = ''; return; }
@@ -810,7 +829,9 @@ async function saveEditor() {
   if (!e.name) { toast('Dai un nome alla carta'); $('#e-name')?.focus(); return; }
   e.code = e.code.trim();
   if (e.code) { const r = BC.make(e.code, e.codeType); if (r.err) { toast(r.err); return; } }
-  const rec = { id: e.id || rid(), kind: e.kind, name: e.name, color: e.color, code: e.code, codeType: e.codeType, expiry: e.expiry, fields: e.fields.filter(f => f.l.trim() || f.v.trim()).map(f => ({ l: f.l.trim(), v: f.v.trim() })), front: e.front || null, back: e.back || null, notes: e.notes.trim(), emblem: e.emblem && e.emblem.v ? e.emblem : null, c1: e.c1, c2: e.c2, pat: e.pat || '' };
+  const codes = e.codes.map(x => ({ l: x.l.trim(), v: x.v.trim(), t: x.t })).filter(x => x.v);
+  for (const x of codes) { const r = BC.make(x.v, x.t); if (r.err) { toast((x.l || 'Codice') + ': ' + r.err); return; } }
+  const rec = { id: e.id || rid(), kind: e.kind, name: e.name, color: e.color, code: e.code, codeType: e.codeType, expiry: e.expiry, fields: e.fields.filter(f => f.l.trim() || f.v.trim()).map(f => ({ l: f.l.trim(), v: f.v.trim() })), front: e.front || null, back: e.back || null, notes: e.notes.trim(), emblem: e.emblem && e.emblem.v ? e.emblem : null, c1: e.c1, c2: e.c2, pat: e.pat || '', codes };
   const i = S.cards.findIndex(c => c.id === rec.id); if (i >= 0) S.cards[i] = rec; else S.cards.push(rec);
   await save(); closeL('editor'); renderHome(); if (isOpen('detail') && UI.d) renderDetail(); toast('Salvato');
 }
@@ -870,9 +891,10 @@ function finishDraw() {
 }
 
 /* scanner */
-let scanStream = null, scanRun = false;
-const FMT = { ean_13: 'ean13', ean_8: 'ean8', code_128: 'code128', code_39: 'code39', qr_code: 'qr', upc_a: 'auto', upc_e: 'auto' };
-async function startScan() {
+let scanStream = null, scanRun = false, scanIdx = -1;
+const FMT = { ean_13: 'ean13', ean_8: 'ean8', code_128: 'code128', code_39: 'code39', qr_code: 'qr', upc_a: 'auto' };
+async function startScan(idx = -1) {
+  scanIdx = idx;
   openL('scan');
   $('#L-scan').innerHTML = `<video playsinline muted></video><div class="sframe"></div><div class="shint">Inquadra il codice della carta</div><div class="vbar"><button class="pill" data-act="close">Annulla</button></div>`;
   UI.picking = true;
@@ -886,10 +908,12 @@ async function startScan() {
   }
 }
 function stopScan() { scanRun = false; UI.picking = false; scanStream?.getTracks().forEach(t => t.stop()); scanStream = null; }
+const NOREP = f => `Formato ${String(f).replace('_', ' ')} non riproducibile: salva invece una foto del codice`;
+function applyCode(v, t, idx) { if (idx >= 0 && ED.codes[idx]) { ED.codes[idx].v = v; ED.codes[idx].t = t; } else { ED.code = v; ED.codeType = t; } }
 function gotScan(b) {
-  const t = FMT[b.format]; ED.code = b.rawValue; ED.codeType = t || 'auto';
-  navigator.vibrate?.(40); closeL('scan'); renderEditor();
-  toast(t ? 'Codice acquisito' : `Formato ${b.format.replace('_', ' ')} non riproducibile: aggiungi anche una foto`);
+  const t = FMT[b.format]; navigator.vibrate?.(40); closeL('scan');
+  if (!t) { toast(NOREP(b.format)); return; }
+  applyCode(b.rawValue, t, scanIdx); renderEditor(); toast('Codice acquisito');
 }
 
 /* ---------------- settings ---------------- */
@@ -941,7 +965,7 @@ async function changePass() {
   try { await decrypt(await derive(o, VAULT.salt, VAULT.iter), VAULT.iv, VAULT.ct); } catch { toast('Passphrase attuale errata'); return; }
   if (strength(n)[1] < 1 || new Set(n).size < 5) { toast('Nuova passphrase troppo debole (min. 10 caratteri)'); return; }
   if (n !== n2) { toast('Le nuove passphrase non coincidono'); return; }
-  const salt = crypto.getRandomValues(new Uint8Array(16)); KEY = await derive(n, salt, ITER); VAULT = { v: 1, iter: ITER, salt }; await save(); renderSettings(); toast('Passphrase cambiata');
+  const salt = crypto.getRandomValues(new Uint8Array(16)); const nk = await derive(n, salt, ITER); if (!S) return; KEY = nk; VAULT = { v: 1, iter: ITER, salt }; await save(); renderSettings(); toast('Passphrase cambiata');
 }
 async function wipe() {
   const r = await dialog({ title: 'Elimina tutto', msg: 'Verranno cancellati carte, foto e caveau da questo dispositivo. Senza un backup non si torna indietro. Scrivi ELIMINA per confermare.', inputs: [{ ph: 'ELIMINA' }], buttons: [{ label: 'Annulla', val: 0 }, { label: 'Elimina', val: 1, cls: 'dng' }] });
@@ -961,14 +985,14 @@ document.addEventListener('click', async e => {
     case 'open': openDetail(d.id); break;
     case 'close': closeTop(); break;
     case 'edit': openEditor(UI.d.id); break;
-    case 'bigcode': openBigCode(); break;
+    case 'bigcode': openBigCode(d.i); break;
     case 'fs': renderViewer(); openL('viewer'); break;
     case 'side': UI.d.side = d.s; syncSide(); break;
     case 'copy': copy(d.v); break;
     case 'ecancel': closeL('editor'); break;
     case 'esave': saveEditor(); break;
     case 'ekind': ED.kind = d.k; if (!ED.name) ED.color = d.k === 'doc' ? 'blue' : 'graphite'; renderEditor(); break;
-    case 'epreset': { const p = PRESETS[+d.i]; ED.name = p.name; ED.color = p.color; ED.fields = p.fields.map(l => ({ l, v: '' })); ED.codeType = p.codeType || 'auto'; renderEditor(); break; }
+    case 'epreset': { const p = PRESETS[+d.i]; ED.name = p.name; ED.color = p.color; ED.fields = p.fields.map(l => ({ l, v: '' })); ED.codeType = p.codeType || 'auto'; ED.codes = (p.codes || []).map(x => ({ ...x })); if (p.emblem) { ED.emblem = { ...p.emblem }; ED._tab = p.emblem.t; } renderEditor(); break; }
     case 'ecolor': if (d.c === 'custom' && ED.color !== 'custom') { const k0 = col(ED.color); ED.c1 = k0.a; ED.c2 = k0.b; } ED.color = d.c; renderEditor(); break;
     case 'epat': ED.pat = d.p; renderEditor(); break;
     case 'etab': if (d.t === 'none' || (ED.emblem && ED.emblem.t !== d.t)) ED.emblem = null; ED._tab = d.t; renderEditor(); break;
@@ -984,6 +1008,10 @@ document.addEventListener('click', async e => {
     case 'dundo': { const h = DR.hist.pop(); if (h) DR.g.putImageData(h, 0, 0); break; }
     case 'dclear': DR.snap(); DR.g.clearRect(0, 0, 512, 512); break;
     case 'escan': startScan(); break;
+    case 'exscan': startScan(+d.i); break;
+    case 'exadd': ED.codes.push({ l: '', v: '', t: 'auto' }); renderEditor(); $$('#L-editor .xc').pop()?.querySelector('input')?.focus(); break;
+    case 'exdel': ED.codes.splice(+d.i, 1); renderEditor(); break;
+    case 'exfile': UI.fileT = +d.i; UI.picking = true; $('#e-codefile').value = ''; $('#e-codefile').click(); setTimeout(() => { UI.picking = false; }, 120000); break;
     case 'eaddf': ED.fields.push({ l: '', v: '' }); renderEditor(); $$('#L-editor .fr').pop()?.querySelector('input')?.focus(); break;
     case 'edelf': ED.fields.splice(+d.i, 1); renderEditor(); break;
     case 'epick': pickSide = d.s; UI.picking = true; $('#e-file').value = ''; $('#e-file').click(); setTimeout(() => { UI.picking = false; }, 120000); break;
@@ -1013,6 +1041,7 @@ const onInput = e => {
     else if (t.id === 'e-emoji') { const g1 = firstG(t.value); if (t.value !== g1) t.value = g1; ED.emblem = g1 ? { t: 'emoji', v: g1 } : null; }
     else if (t.id === 'e-c1' && HEX.test(t.value)) ED.c1 = t.value;
     else if (t.id === 'e-c2' && HEX.test(t.value)) ED.c2 = t.value;
+    else if (t.dataset.x) { ED.codes[+t.dataset.i][t.dataset.x] = t.value; updateXPrev(+t.dataset.i); }
     updateFace();
   } else if (t.id === 's-idle') { S.settings.idle = +t.value; save(); }
   else if (t.id === 's-bg') { S.settings.bg = +t.value; save(); }
@@ -1025,6 +1054,17 @@ document.addEventListener('input', onInput); document.addEventListener('change',
   else if (e.target.id === 'e-emfile') {
     UI.picking = false; const f = e.target.files[0]; if (!f || !ED) return;
     try { ED.emblem = { t: 'img', v: await fileToPng(f) }; ED._tab = 'img'; renderEditor(); } catch { toast('Immagine non leggibile'); }
+  }
+  else if (e.target.id === 'e-codefile') {
+    UI.picking = false; const f = e.target.files[0]; if (!f || !ED) return;
+    try {
+      const found = await new BarcodeDetector().detect(await createImageBitmap(f));
+      if (!found.length) { toast('Nessun codice trovato nell’immagine'); return; }
+      const used = new Set([ED.code, ...ED.codes.map(x => x.v)]);
+      const pick = found.find(b => FMT[b.format] && !used.has(b.rawValue)) || found.find(b => FMT[b.format]);
+      if (!pick) { toast(NOREP(found[0].format)); return; }
+      applyCode(pick.rawValue, FMT[pick.format], UI.fileT ?? -1); renderEditor(); toast(found.length > 1 ? `Trovati ${found.length} codici: ripeti per gli altri` : 'Codice acquisito');
+    } catch { toast('Immagine non leggibile'); }
   }
   else onInput(e);
 });
